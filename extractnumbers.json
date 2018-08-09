@@ -1,0 +1,39 @@
+{
+  "name": "Extract numbers",
+  "id_name": "extract-numbers",
+  "category" : "Clean",
+  "icon": "edit",
+  "description": "Extract numbers from text.",
+  "parameters": [
+    {
+      "name": "In columns",
+      "id_name": "source-columns",
+      "type": "multicolumn",
+      "ui-only": true
+    },
+    {
+         "name": "Column Names",
+         "id_name": "colnames",
+         "type": "string",
+         "visible": false
+    },
+    {
+      "name": "Type",
+      "id_name" : "type",
+      "type": "menu",
+      "menu_items": "Integer (no decimal point)|Float (with decimal point)|Any numerical value"
+    },
+    {
+      "name": "Include text before value",
+      "id_name": "text_before",
+      "type": "checkbox",
+      "default": "False"
+    },
+    {
+      "name": "Include text after value",
+      "id_name": "text_after",
+      "type": "checkbox",
+      "default": "False"
+    }
+  ]
+}
