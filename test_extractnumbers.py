@@ -7,6 +7,11 @@ from extractnumbers import render
 class TestExtractNumbers(unittest.TestCase):
 
     def setUp(self):
+        self.type_map = {
+            'any':      0,
+            'int':      1,
+            'float':    2
+        }
         # Test data includes:
         #  - rows of string and categorical types
         #  - expected outputs
@@ -125,73 +130,73 @@ class TestExtractNumbers(unittest.TestCase):
 
     def test_NOP(self):
         # should NOP when first applied
-        params = {'colnames': '', 'type': 0, 'text_before': False, 'text_after': False}
+        params = {'colnames': '', 'type': self.type_map['int'], 'text_before': False, 'text_after': False}
         out = render(self.table, params)
         self.assertTrue(out.equals(self.table))
 
     def test_extract_int(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 0, 'text_before': False, 'text_after': False}
+        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': False, 'text_after': False}
         out = render(self.table, params)
         pd.testing.assert_frame_equal(out, self.result_int)
 
     def test_extract_float(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 1, 'text_before': False, 'text_after': False}
+        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': False, 'text_after': False}
         out = render(self.table, params)
         pd.testing.assert_frame_equal(out, self.result_float)
 
     def test_extract_any(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 2, 'text_before': False, 'text_after': False}
+        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': False, 'text_after': False}
         out = render(self.table, params)
         pd.testing.assert_frame_equal(out, self.result_any)
 
     def test_extract_text_before(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 1, 'text_before': True, 'text_after': False}
+        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': True, 'text_after': False}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_float, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 0, 'text_before': True, 'text_after': False}
+        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': True, 'text_after': False}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_int, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 2, 'text_before': True, 'text_after': False}
+        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': True, 'text_after': False}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_any, check_categorical=False)
 
     def test_extract_text_after(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 1, 'text_before': False, 'text_after': True}
+        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': False, 'text_after': True}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_after_float, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 0, 'text_before': False, 'text_after': True}
+        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': False, 'text_after': True}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_after_int, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 2, 'text_before': False, 'text_after': True}
+        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': False, 'text_after': True}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_after_any, check_categorical=False)
 
     def test_extract_before_and_after(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 1, 'text_before': True, 'text_after': True}
+        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': True, 'text_after': True}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_and_after_float, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 0, 'text_before': True, 'text_after': True}
+        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': True, 'text_after': True}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_and_after_int, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': 2, 'text_before': True, 'text_after': True}
+        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': True, 'text_after': True}
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_and_after_any, check_categorical=False)
 

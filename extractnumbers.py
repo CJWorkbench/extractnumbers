@@ -4,7 +4,7 @@ def render(table, params):
     if not params['colnames']:
         return table
 
-    type_mapping = ['int', 'float', 'none']
+    type_mapping = [None, 'int', 'float']
     text_before = params['text_before']
     text_after = params['text_after']
     type = params['type']
