@@ -25,7 +25,9 @@ def render(table, params):
 # Extracts the first number of type found, no int returns -1, else null
 def extract_number_only(column, type):
     if type == 'int':
-        return column.apply(lambda x: (find_numbers(x, type)) or -1).astype(np.int64)
+        return pd.to_numeric(
+            column.apply(lambda x: (find_numbers(x, type))),
+            downcast='integer', errors='coerce')
     else:
         return column.apply(lambda x: find_numbers(x, type)).astype(np.float64)
 

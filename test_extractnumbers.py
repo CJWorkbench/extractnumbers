@@ -25,14 +25,14 @@ class TestExtractNumbers(unittest.TestCase):
         self.table['catcol'] = self.table['catcol'].astype('category')
 
         self.result_int = pd.DataFrame([
-            [1,     93,     4,      -1],
-            [10,    99,     999,    -1]],
+            [1,     93,     4,      np.nan],
+            [10,    99,     999,    np.nan]],
             columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
 
-        self.result_int['stringcol1'] = self.result_int['stringcol1'].astype(np.int64)
-        self.result_int['stringcol2'] = self.result_int['stringcol2'].astype(np.int64)
-        self.result_int['nonum'] = self.result_int['nonum'].astype(np.int64)
-        self.result_int['catcol'] = self.result_int['catcol'].astype(np.int64)
+        self.result_int['stringcol1'] = self.result_int['stringcol1'].astype(np.int8)
+        self.result_int['stringcol2'] = self.result_int['stringcol2'].astype(np.int8)
+        self.result_int['nonum'] = self.result_int['nonum'].astype(np.float64)
+        self.result_int['catcol'] = self.result_int['catcol'].astype(np.int16)
 
         self.result_float = pd.DataFrame([
             [0.565,     np.nan,     np.nan,      None],
