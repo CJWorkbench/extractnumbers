@@ -2,7 +2,7 @@
   "name": "Extract numbers",
   "id_name": "extract-numbers",
   "category" : "Clean",
-  "icon": "edit",
+  "icon": "number",
   "description": "Extract numbers from text.",
   "parameters": [
     {
