@@ -43,6 +43,8 @@ def extract_substring(string, type, text_before, text_after):
 
 # Finds first number of type, null if none
 def find_numbers(string, type=None):
+    if not string:
+        return None
     str_numbers = [x for x in re.sub('[^\d|\.|]', " ", string).split(' ') if x]
     if type == 'int':
         ints = [np.int64(x) for x in str_numbers if '.' not in x]

@@ -115,6 +115,14 @@ class TestExtractNumbers(unittest.TestCase):
 
         self.result_text_before_and_after_any['catcol'] = self.result_text_before_and_after_any['catcol'].astype('category')
 
+        # should handle null values
+        self.table_null = pd.DataFrame([
+            [None]*4,
+            [None,None,'26.0!',None]],
+            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
+
+        self.table_null['catcol'] = self.table_null['catcol'].astype('category')
+
     def test_NOP(self):
         # should NOP when first applied
         params = {'colnames': '', 'type': 0, 'text_before': False, 'text_after': False}
@@ -143,7 +151,7 @@ class TestExtractNumbers(unittest.TestCase):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
         params = {'colnames': colnames, 'type': 1, 'text_before': True, 'text_after': False}
         out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_float,check_categorical=False)
+        pd.testing.assert_frame_equal(out, self.result_text_before_float, check_categorical=False)
 
         colnames = 'stringcol1,stringcol2,catcol,nonum'
         params = {'colnames': colnames, 'type': 0, 'text_before': True, 'text_after': False}
@@ -187,6 +195,10 @@ class TestExtractNumbers(unittest.TestCase):
         out = render(self.table.copy(), params)
         pd.testing.assert_frame_equal(out, self.result_text_before_and_after_any, check_categorical=False)
 
+    def test_extract_null(self):
+        # Null table should process with no errors
+        params = {'colnames': 'stringcol1,stringcol2,catcol,nonum', 'type': 1, 'text_before': False, 'text_after': True}
+        out = render(self.table_null.copy(), params)
 
 if __name__ == '__main__':
     unittest.main()
