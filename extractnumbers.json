@@ -21,7 +21,7 @@
       "name": "Type",
       "id_name" : "type",
       "type": "menu",
-      "menu_items": "Integer (no decimal point)|Float (with decimal point)|Any numerical value"
+      "menu_items": "Any numerical value|Only Integer (no decimal point)|Only Float (with decimal point)"
     },
     {
       "name": "Include text before value",
