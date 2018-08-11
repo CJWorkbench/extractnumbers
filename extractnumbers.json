@@ -24,13 +24,13 @@
       "menu_items": "Any numerical value|Only Integer (no decimal point)|Only Float (with decimal point)"
     },
     {
-      "name": "Include text before value",
+      "name": "Keep text before value",
       "id_name": "text_before",
       "type": "checkbox",
       "default": "False"
     },
     {
-      "name": "Include text after value",
+      "name": "Keep text after value",
       "id_name": "text_after",
       "type": "checkbox",
       "default": "False"
