@@ -3,207 +3,121 @@ import pandas as pd
 import numpy as np
 from extractnumbers import render
 
+m_map = {
+            'type_extract': 'Any numerical value|Only integer|Only float value'.lower().split('|'),
+            'type_format': 'U.S.|E.U.'.lower().split('|'),
+            'type_replace': 'Null|0'.lower().split('|')
+        }
 
 class TestExtractNumbers(unittest.TestCase):
 
     def setUp(self):
-        self.type_map = {
-            'any':      0,
-            'int':      1,
-            'float':    2
-        }
+
         # Test data includes:
         #  - rows of string and categorical types
         #  - expected outputs
         #  - if column categorical type, retain categorical
-        self.table = pd.DataFrame([
-            ['0.565[note1]',        '93[note2]',        '[note 4]88',       'nonumber'],
-            ['10%',                 '99%   some text',  '999-72.2',         'yes99.0number']],
+        self.simple = pd.DataFrame([
+            ['0,0',         '93,[note-2.0]',   '[note 4]88',   'nonumber'],
+            ['1,000,000',   '99.0,98',      '999-72.2',     'yes99.0number']],
             columns=['stringcol1','stringcol2', 'catcol', 'nonum'])
 
         # Cast a category for index handling/preservation (string output only)
-        self.table['catcol'] = self.table['catcol'].astype('category')
+        self.simple['catcol'] = self.simple['catcol'].astype('category')
 
-        self.result_int = pd.DataFrame([
-            [1,     93,     4,      np.nan],
-            [10,    99,     999,    np.nan]],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_int['stringcol1'] = self.result_int['stringcol1'].astype(np.int8)
-        self.result_int['stringcol2'] = self.result_int['stringcol2'].astype(np.int8)
-        self.result_int['nonum'] = self.result_int['nonum'].astype(np.float64)
-        self.result_int['catcol'] = self.result_int['catcol'].astype(np.int16)
-
-        self.result_float = pd.DataFrame([
-            [0.565,     np.nan,     np.nan,      None],
-            [np.nan,      np.nan,     72.2,    99.0]],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_float['stringcol1'] = self.result_float['stringcol1'].astype(float)
-        self.result_float['stringcol2'] = self.result_float['stringcol2'].astype(float)
-        self.result_float['nonum'] = self.result_float['nonum'].astype(float)
-        self.result_float['catcol'] = self.result_float['catcol'].astype(float)
-
-        self.result_any = pd.DataFrame([
-            [0.565, 93, 4,  None],
-            [10.0, 99, 999, 99.0]],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_any['stringcol1'] = self.result_any['stringcol1'].astype(float)
-        self.result_any['stringcol2'] = self.result_any['stringcol2'].astype(float)
-        self.result_any['nonum'] = self.result_any['nonum'].astype(float)
-        self.result_any['catcol'] = self.result_any['catcol'].astype(float)
-
-        self.result_text_before_float = pd.DataFrame([
-            ['0.565',   '',     '',         ''],
-            ['',        '',     '999-72.2',     'yes99.0']],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_text_before_float['catcol'] = self.result_text_before_float['catcol'].astype('category')
-
-        self.result_text_before_int = pd.DataFrame([
-            ['0.565[note1',     '93',     '[note 4',        ''],
-            ['10',                '99',     '999',            '']],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_text_before_int['catcol'] = self.result_text_before_int['catcol'].astype('category')
-
-        self.result_text_before_any = pd.DataFrame([
-            ['0.565',        '93',      '[note 4',      ''],
-            ['10',           '99',      '999',          'yes99.0']],
+        self.result_simple_int = pd.DataFrame([
+            [0,         93,   4,   0],
+            [1000000,   98,   999, 0]],
             columns=['stringcol1','stringcol2', 'catcol', 'nonum'])
 
-        # Cast a category for index handling/preservation (string output only)
-        self.result_text_before_any['catcol'] = self.result_text_before_any['catcol'].astype('category')
 
-        self.result_text_after_float = pd.DataFrame([
-            ['0.565[note1]',        '',        '',       ''],
-            ['',                    '',         '72.2',  '99.0number']],
+        self.result_simple_float = pd.DataFrame([
+            [None,   -2.0,   None,   None],
+            [None,   99.0,   -72.2,  99.0]],
+            columns=['stringcol1','stringcol2', 'catcol', 'nonum'])
+
+        self.result_simple_any = pd.DataFrame([
+            [0,       93.0, 4.0,  None],
+            [1000000.0, 99.0, 999.0,99.0]],
             columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
 
-        self.result_text_after_float['catcol'] = self.result_text_after_float['catcol'].astype('category')
-
-        self.result_text_after_int = pd.DataFrame([
-            ['1]',        '93[note2]',        '4]88',       ''],
-            ['10%',       '99%   some text',  '999-72.2',   '']],
+        self.result_simple_number = pd.DataFrame([
+            [None,      None, None, None],
+            [1000000.0, None, None, None]],
             columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
 
-        self.result_text_after_int['catcol'] = self.result_text_after_int['catcol'].astype('category')
-
-        self.result_text_after_any = pd.DataFrame([
-            ['0.565[note1]',        '93[note2]',        '4]88',       ''],
-            ['10%',                 '99%   some text',  '999-72.2',   '99.0number']],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_text_after_any['catcol'] = self.result_text_after_any['catcol'].astype('category')
-
-
-        self.result_text_before_and_after_float = pd.DataFrame([
-            ['0.565[note1]', '', '', ''],
-            ['', '', '999-72.2', 'yes99.0number']],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_text_before_and_after_float['catcol'] = self.result_text_before_and_after_float['catcol'].astype('category')
-
-
-        self.result_text_before_and_after_int = pd.DataFrame([
-            ['0.565[note1]',        '93[note2]',        '[note 4]88',       ''],
-            ['10%',                 '99%   some text',  '999-72.2',         '']],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_text_before_and_after_int['catcol'] = self.result_text_before_and_after_int['catcol'].astype('category')
-
-        self.result_text_before_and_after_any = pd.DataFrame([
-            ['0.565[note1]',        '93[note2]',        '[note 4]88',       ''],
-            ['10%',                 '99%   some text',  '999-72.2',         'yes99.0number']],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_text_before_and_after_any['catcol'] = self.result_text_before_and_after_any['catcol'].astype('category')
-
-        # should handle null values
-        self.table_null = pd.DataFrame([
-            [None]*4,
-            [None,None,'26.0!',None]],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.table_null['catcol'] = self.table_null['catcol'].astype('category')
+    def switch_formatting(self, table):
+        s_placeholder = '|'
+        d_placeholder = '*'
+        table = table.applymap(lambda x: x.replace(',', s_placeholder))
+        table = table.applymap(lambda x: x.replace('.', d_placeholder))
+        table = table.applymap(lambda x: x.replace(s_placeholder, '.'))
+        table = table.applymap(lambda x: x.replace(d_placeholder, ','))
+        return table
 
     def test_NOP(self):
         # should NOP when first applied
-        params = {'colnames': '', 'type': self.type_map['int'], 'text_before': False, 'text_after': False}
-        out = render(self.table, params)
-        self.assertTrue(out.equals(self.table))
+        params = {'colnames': ''}
+        out = render(self.simple, params)
+        self.assertTrue(out.equals(self.simple))
 
     def test_extract_int(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': False, 'text_after': False}
-        out = render(self.table, params)
-        pd.testing.assert_frame_equal(out, self.result_int)
+        params = {'colnames': colnames,
+                  'extract': True,
+                  'type_extract': m_map['type_extract'].index('only integer'),
+                  'type_format': m_map['type_format'].index('u.s.'),
+                  'type_replace': m_map['type_replace'].index('0')}
+        out = render(self.simple.copy(), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_int)
+
+        # EU formatting
+        params['type_format'] = m_map['type_format'].index('e.u.')
+        out = render(self.switch_formatting(self.simple), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_int)
 
     def test_extract_float(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': False, 'text_after': False}
-        out = render(self.table, params)
-        pd.testing.assert_frame_equal(out, self.result_float)
+        params = {'colnames': colnames,
+                  'extract': True,
+                  'type_extract': m_map['type_extract'].index('only float value'),
+                  'type_format': m_map['type_format'].index('u.s.'),
+                  'type_replace': m_map['type_replace'].index('null')}
+        out = render(self.simple.copy(), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_float)
+
+        # EU
+        params['type_format'] = m_map['type_format'].index('e.u.')
+        out = render(self.switch_formatting(self.simple), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_float)
 
     def test_extract_any(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': False, 'text_after': False}
-        out = render(self.table, params)
-        pd.testing.assert_frame_equal(out, self.result_any)
+        params = {'colnames': colnames,
+                  'extract': True,
+                  'type_extract': m_map['type_extract'].index('any numerical value'),
+                  'type_format': m_map['type_format'].index('u.s.'),
+                  'type_replace': m_map['type_replace'].index('null')}
+        out = render(self.simple.copy(), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_any)
 
-    def test_extract_text_before(self):
+        params['type_format'] = m_map['type_format'].index('e.u.')
+        out = render(self.switch_formatting(self.simple), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_any)
+
+    def test_to_number(self):
         colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': True, 'text_after': False}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_float, check_categorical=False)
+        params = {'colnames': colnames,
+                  'extract': False,
+                  'type_extract': m_map['type_extract'].index('any numerical value'),
+                  'type_format': m_map['type_format'].index('u.s.'),
+                  'type_replace': m_map['type_replace'].index('null')}
+        out = render(self.simple.copy(), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_number)
 
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': True, 'text_after': False}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_int, check_categorical=False)
-
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': True, 'text_after': False}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_any, check_categorical=False)
-
-    def test_extract_text_after(self):
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': False, 'text_after': True}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_after_float, check_categorical=False)
-
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': False, 'text_after': True}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_after_int, check_categorical=False)
-
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': False, 'text_after': True}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_after_any, check_categorical=False)
-
-    def test_extract_before_and_after(self):
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['float'], 'text_before': True, 'text_after': True}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_and_after_float, check_categorical=False)
-
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['int'], 'text_before': True, 'text_after': True}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_and_after_int, check_categorical=False)
-
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames, 'type': self.type_map['any'], 'text_before': True, 'text_after': True}
-        out = render(self.table.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_text_before_and_after_any, check_categorical=False)
-
-    def test_extract_null(self):
-        # Null table should process with no errors
-        params = {'colnames': 'stringcol1,stringcol2,catcol,nonum', 'type': 1, 'text_before': False, 'text_after': True}
-        out = render(self.table_null.copy(), params)
+        params['type_format'] = m_map['type_format'].index('e.u.')
+        out = render(self.switch_formatting(self.simple), params)
+        pd.testing.assert_frame_equal(out, self.result_simple_number)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,58 +1,181 @@
+import regex
+
+# Ignore negative numbers for now
+# TODO first column goes twice
+
+m_map = {
+    'type_extract':   'Any numerical value|Only integer|Only float value'.lower().split('|'),
+    'type_format':    'U.S.|E.U.'.lower().split('|'),
+    'type_replace':    'Null|0'.lower().split('|')
+}
+
+p_map = {
+    'u.s.': {
+        'separator': ',',
+        'decimal': '.'
+    },
+    'e.u.': {
+        'separator': '.',
+        'decimal': ','
+    }
+}
+
 # Extracts all non-negative numbers for now
 def render(table, params):
     # if no column has been selected, return table
     if not params['colnames']:
         return table
 
-    type_mapping = [None, 'int', 'float']
-    text_before = params['text_before']
-    text_after = params['text_after']
-    type = params['type']
-    columns = params['colnames'].split(',')
-    columns = [c.strip() for c in columns]
+    extract = params['extract']
+    type_extract = m_map['type_extract'][params['type_extract']] if extract else None
+    type_format = m_map['type_format'][params['type_format']]
+    type_replace = m_map['type_replace'][params['type_replace']]
+    columns = [c.strip() for c in params['colnames'].split(',')]
+
+    separator = p_map[type_format]['separator']
+    decimal = p_map[type_format]['decimal']
 
     text_columns = table[columns].select_dtypes(include=['object', 'category']).columns
+    dtypes = table[text_columns].get_dtype_counts().index
 
-    if text_before or text_after:
-        for col in text_columns:
-            table[col] = table[col].apply(lambda x: extract_substring(x, type_mapping[type], text_before, text_after))
+    type_replace = 0 if type_replace == '0' else None
+
+    if not extract:
+        dispatch = lambda x: convert_as_is(x, separator, decimal, type_replace) if x else type_replace
+    elif type_extract == 'only integer':
+        dispatch = lambda x: extract_int(x, separator, decimal, type_replace) if x else type_replace
+    elif type_extract == 'only float value':
+        dispatch = lambda x: extract_float(x, separator, decimal, type_replace) if x else type_replace
     else:
-        for col in text_columns:
-            table[col] = extract_number_only(table[col], type_mapping[type])
+        dispatch = lambda x: extract_any(x, separator, decimal, type_replace) if x else type_replace
 
+    for dtype in dtypes:
+        dtype_columns = table[text_columns].dtypes[table[columns].dtypes == dtype].index
+        if dtype == 'category':
+            for column in dtype_columns:
+                prepare_cat(table[column])
+                # TODO cast as string for now, improve performance by operating on categorical index
+                table[column] = table[column].astype(str).apply(dispatch)
+        else:
+            table[dtype_columns] = table[dtype_columns].applymap(dispatch)
     return table
 
-# Extracts the first number of type found, no int returns -1, else null
-def extract_number_only(column, type):
-    if type == 'int':
-        return pd.to_numeric(
-            column.apply(lambda x: (find_numbers(x, type))),
-            downcast='integer', errors='coerce')
-    else:
-        return column.apply(lambda x: find_numbers(x, type)).astype(np.float64)
+# Replace null values with ''
+def prepare_cat(series):
+    if any(series.isna()):
+        if '' not in series.cat.categories:
+            series.cat.add_categories('', inplace=True)
+        series.fillna('', inplace=True)
 
-# Extracts the substring based on before/after inputs
-def extract_substring(string, type, text_before, text_after):
-    number = find_numbers(string, type)
-    if number:
-        start = string.find(str(number))
-        end = start + len(str(number))
-        if text_before: start = 0
-        if text_after: end = len(string) + 1
-        return string[start:end]
+# Extracts substrings with numbers, separator, and decimal
+def extract_chunks(string, separator, decimal):
+    candidates = regex.sub(f'[^\p{"N"}\-{separator+decimal}]', ' ', string).split()
+    if not candidates:
+        return []
+    # Separate negative numbers by inserting and splitting at '-'
     else:
-        return ''
+        results = []
+        for candidate in candidates:
+            if '-' not in candidate:
+                results.append(candidate)
+            else:
+                # Indices where '-' exists
+                ls = list(candidate)
+                for idx in [i for i, x in enumerate(ls) if x == '-']:
+                    ls.insert(idx, ' ')
+                for signed_num in ''.join(ls).split():
+                    results.append(signed_num)
+        # If decimal comes before separator, split and flatten
+        candidates = results
+        results = []
+        for candidate in candidates:
+            if separator in candidate and decimal in candidate:
+                s_idx = candidate.index(separator)
+                d_idx = candidate.index(decimal)
+                if s_idx > d_idx:
+                    results.append(candidate[:s_idx])
+                    results.append(candidate[s_idx+1:])
+                    continue
+            results.append(candidate)
+        return results
 
-# Finds first number of type, null if none
-def find_numbers(string, type=None):
-    if not string:
+def detect_number_with_separators(string, separator, decimal):
+    result = regex.search(f'^\d{{1,3}}({separator}\d{{3}})*(\\{decimal}\d+)?$', string)
+    if result:
+        return result.group()
+    else:
         return None
-    str_numbers = [x for x in re.sub('[^\d|\.|]', " ", string).split(' ') if x]
-    if type == 'int':
-        ints = [np.int64(x) for x in str_numbers if '.' not in x]
-        if ints: return ints[0]
-    elif type == 'float':
-        floats = [np.float64(x) for x in str_numbers if '.' in x]
-        if floats: return floats[0]
-    elif str_numbers: return str_numbers[0]
-    return None
+
+# Only for number conversion (not extract). Returns float, otherwise null if not a number.
+def convert_as_is(string, separator, decimal, type_replace):
+    if separator not in string:
+        try:
+            # Need to replace decimal (can be both . and ,) with '.'
+            return float(string.replace(decimal, '.'))
+        except ValueError:
+            return type_replace
+    else:
+        result = detect_number_with_separators(string, separator, decimal)
+        if result:
+            return float(result.replace(separator, '').replace(decimal, '.'))
+        else:
+            return type_replace
+
+# First finds candidates that contain separator only (int)
+# Then returns first candidate that matches int, otherwise type_replace
+def extract_int(string, separator, decimal, type_replace):
+    candidates = extract_chunks(string, separator, decimal)
+    for candidate in candidates:
+        # Throw out candidates with decimal
+        if decimal in candidate:
+            continue
+        # Return candidate if no separator
+        elif separator not in candidate:
+            return int(candidate)
+        else:
+            # Returns null if candidate format incorrect, decimal negligible since already thrown out
+            result = detect_number_with_separators(candidate, separator, decimal)
+            # If the whole string is in the correct format (1,000,000) return it.
+            # Otherwise, return first int ex: 1 in '01,99'
+            if result:
+                return int(result.replace(separator, ''))
+            else:
+                return int(candidate.split(separator)[0])
+    return type_replace
+
+def extract_float(string, separator, decimal, type_replace):
+    candidates = extract_chunks(string, separator, decimal)
+    for candidate in candidates:
+        # Throw out candidates without decimal
+        if decimal not in candidate:
+            continue
+        # Return candidate if no separator
+        elif separator not in candidate:
+            return float(candidate.replace(decimal, '.'))
+        else:
+            # Returns null if candidate format incorrect, decimal negligible since already thrown out
+            result = detect_number_with_separators(candidate, separator, decimal)
+            # If the whole string is in the correct format (1,000,000) return it.
+            # Otherwise, return first int ex: 1 in '01,99'
+            if result:
+                return float(result.replace(separator, '').replace(decimal, '.'))
+            else:
+                return float(candidate.split(separator)[-1].replace(decimal, '.'))
+    return type_replace
+
+def extract_any(string, separator, decimal, type_replace):
+    candidates = extract_chunks(string, separator, decimal)
+    for candidate in candidates:
+        # Return candidate if no separator
+        if separator not in candidate:
+            return float(candidate.replace(decimal, '.'))
+        else:
+            # Returns null if candidate format incorrect, decimal negligible since already thrown out
+            result = detect_number_with_separators(candidate, separator, decimal)
+            # If the whole string is in the correct format (1,000,000) return it.
+            # Otherwise, return first int ex: 1 in '01,99'
+            if result:
+                return float(result.replace(separator, '').replace(decimal, '.'))
+            else:
+                return float(candidate.split(separator)[0].replace(decimal, '.'))
+    return type_replace

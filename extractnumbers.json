@@ -1,9 +1,9 @@
 {
-  "name": "Extract numbers",
+  "name": "Convert to numbers",
   "id_name": "extract-numbers",
   "category" : "Clean",
   "icon": "number",
-  "description": "Extract numbers from text.",
+  "description": "Convert between numerical types and find in text.",
   "parameters": [
     {
       "name": "In columns",
@@ -18,22 +18,33 @@
          "visible": false
     },
     {
-      "name": "Type",
-      "id_name" : "type",
+      "name": "Find number in text",
+      "id_name": "extract",
+      "type": "checkbox",
+      "default": "False"
+    },
+    {
+      "name": "",
+      "id_name" : "type_extract",
       "type": "menu",
-      "menu_items": "Any numerical value|Only Integer (no decimal point)|Only Float (with decimal point)"
+      "menu_items": "Any numerical value|Only integer|Only float value",
+      "visible_if": {
+        "id_name": "extract",
+        "value": true,
+        "invert": false
+      }
     },
     {
-      "name": "Keep text before value",
-      "id_name": "text_before",
-      "type": "checkbox",
-      "default": "False"
+      "name": "Format",
+      "id_name" : "type_format",
+      "type": "menu",
+      "menu_items": "U.S.|E.U."
     },
     {
-      "name": "Keep text after value",
-      "id_name": "text_after",
-      "type": "checkbox",
-      "default": "False"
+      "name": "Replace invalid values with",
+      "id_name" : "type_replace",
+      "type": "menu",
+      "menu_items": "Null|0"
     }
   ]
 }
