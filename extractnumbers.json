@@ -35,7 +35,7 @@
       }
     },
     {
-      "name": "Format",
+      "name": "Input format",
       "id_name" : "type_format",
       "type": "menu",
       "menu_items": "U.S.|E.U."
