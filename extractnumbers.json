@@ -3,6 +3,7 @@
   "id_name": "extract-numbers",
   "category" : "Clean",
   "icon": "number",
+  "help_url":"modules/clean/convert-to-numbers",
   "description": "Convert between numerical types and find in text.",
   "parameters": [
     {
