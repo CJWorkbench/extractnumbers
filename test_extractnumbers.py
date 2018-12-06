@@ -49,6 +49,31 @@ class TestExtractNumbers(unittest.TestCase):
         result = form.process(table)
         assert_frame_equal(result, pd.DataFrame({'A': [1.234, 2.345, 3456]}))
 
+    def test_extract_any_many_commas(self):
+        result = F(['A'], Extract.ANY, Format.US).process(pd.DataFrame({
+            'A': ['1,234,567,890']
+        }))
+        assert_frame_equal(result, pd.DataFrame({'A': [1234567890]}))
+
+    def test_extract_any_us_thousands_must_be_in_groups_of_3(self):
+        result = F(['A'], Extract.ANY, Format.US).process(pd.DataFrame({
+            'A': ['123,4', '2,345,1', '3,23.123']
+        }))
+        assert_frame_equal(result, pd.DataFrame({'A': [123, 2345, 3]}))
+
+    def test_extract_any_eu_thousands_must_be_in_groups_of_3(self):
+        result = F(['A'], Extract.ANY, Format.EU).process(pd.DataFrame({
+            'A': ['123.4', '2.345.1', '3.23,123']
+        }))
+        assert_frame_equal(result, pd.DataFrame({'A': [123, 2345, 3]}))
+
+    def test_extract_exact_eu_thousands_must_be_in_groups_of_3(self):
+        result = F(['A'], Extract.EXACT, Format.EU).process(pd.DataFrame({
+            'A': ['123.4', '2.345.1', '3.23,123']
+        }))
+        assert_frame_equal(result,
+                           pd.DataFrame({'A': [np.nan, np.nan, np.nan]}))
+
     def test_extract_integer_from_str(self):
         table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2', '-3']})
         form = F(['A'], Extract.INTEGER)

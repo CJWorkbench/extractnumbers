@@ -113,6 +113,15 @@ REGEXES = {
         Format.US: re.compile(r'(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)'),
         Format.EU: re.compile(r'(-?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)'),
     },
+    Extract.EXACT: {
+        # ANY, with ^ and $
+        #
+        # Why the regex? Why not simply pass the number to pd.to_numeric()?
+        # Because without this step, "177.1" is a valid EU number -- the
+        # number 1771. That's wrong.
+        Format.US: re.compile(r'^(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)$'),
+        Format.EU: re.compile(r'^(-?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)$'),
+    },
     Extract.INTEGER: {
         Format.US: re.compile(r'(-?(?:\d{1,3}(?:,\d{3})+|\d+))'),
         Format.EU: re.compile(r'(-?(?:\d{1,3}(?:\.\d{3})+|\d+))'),
@@ -127,20 +136,16 @@ REGEXES = {
 def extract_number_text(series: pd.Series, extract_type: Extract,
                         number_format: Format) -> pd.Series:
     """Turns '[note 1]1,234.45' into '1,234.56' (depending on format)."""
-    if extract_type == Extract.EXACT:
-        return series
-    else:
-        regex = REGEXES[extract_type][number_format]
-        return series.str.extract(regex, expand=False)
+    regex = REGEXES[extract_type][number_format]
+    return series.str.extract(regex, expand=False)
 
 
 def unformat_number_text(series: pd.Series,
                          number_format: Format) -> pd.Series:
     """Turns '1,234.56' into '1234.56'."""
     if number_format == Format.US:
-        series = series.str.replace(',', '', regex=False)
+        series = series.str.translate({ord(','): None})
     else:
-        series = series.str.replace('.', '', regex=False)
-        series = series.str.replace(',', '.', regex=False)
+        series = series.str.translate({ord(','): ord('.'), ord('.'): None})
 
     return series
