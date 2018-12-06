@@ -1,125 +1,137 @@
+from typing import List
 import unittest
-import pandas as pd
 import numpy as np
-from extractnumbers import render
+import pandas as pd
+from pandas.testing import assert_frame_equal
+from extractnumbers import render, Extract, Format, Replace, Form
 
-m_map = {
-            'type_extract': 'Any numerical value|Only integer|Only float value'.lower().split('|'),
-            'type_format': 'U.S.|E.U.'.lower().split('|'),
-            'type_replace': 'Null|0'.lower().split('|')
-        }
+
+def F(colnames: List[str]=[], type_extract: Extract=Extract.EXACT,
+      type_format: Format=Format.US,
+      type_replace: Replace=Replace.NULL):
+    """Form(), with default values."""
+    return Form(colnames, type_extract, type_format, type_replace)
+
 
 class TestExtractNumbers(unittest.TestCase):
-
-    def setUp(self):
-
-        # Test data includes:
-        #  - rows of string and categorical types
-        #  - expected outputs
-        #  - if column categorical type, retain categorical
-        self.simple = pd.DataFrame([
-            ['0,0',         '93,[note-2.0]',   '[note 4]88',   'nonumber'],
-            ['1,000,000',   '99.0,98',      '999-72.2',     'yes99.0number']],
-            columns=['stringcol1','stringcol2', 'catcol', 'nonum'])
-
-        # Cast a category for index handling/preservation (string output only)
-        self.simple['catcol'] = self.simple['catcol'].astype('category')
-
-        self.result_simple_int = pd.DataFrame([
-            [0,         93,   4,   0],
-            [1000000,   98,   999, 0]],
-            columns=['stringcol1','stringcol2', 'catcol', 'nonum'])
-
-
-        self.result_simple_float = pd.DataFrame([
-            [None,   -2.0,   None,   None],
-            [None,   99.0,   -72.2,  99.0]],
-            columns=['stringcol1','stringcol2', 'catcol', 'nonum'])
-
-        self.result_simple_any = pd.DataFrame([
-            [0,       93.0, 4.0,  None],
-            [1000000.0, 99.0, 999.0,99.0]],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-        self.result_simple_number = pd.DataFrame([
-            [None,      None, None, None],
-            [1000000.0, None, None, None]],
-            columns=['stringcol1', 'stringcol2', 'catcol', 'nonum'])
-
-    def switch_formatting(self, table):
-        s_placeholder = '|'
-        d_placeholder = '*'
-        table = table.applymap(lambda x: x.replace(',', s_placeholder))
-        table = table.applymap(lambda x: x.replace('.', d_placeholder))
-        table = table.applymap(lambda x: x.replace(s_placeholder, '.'))
-        table = table.applymap(lambda x: x.replace(d_placeholder, ','))
-        return table
-
     def test_NOP(self):
         # should NOP when first applied
-        params = {'colnames': ''}
-        out = render(self.simple, params)
-        self.assertTrue(out.equals(self.simple))
+        result = F([]).process(pd.DataFrame({'A': ['a', '1']}))
+        assert_frame_equal(result, pd.DataFrame({'A': ['a', '1']}))
 
-    def test_extract_int(self):
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames,
-                  'extract': True,
-                  'type_extract': m_map['type_extract'].index('only integer'),
-                  'type_format': m_map['type_format'].index('u.s.'),
-                  'type_replace': m_map['type_replace'].index('0')}
-        out = render(self.simple.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_int)
+    def test_ignore_numbers(self):
+        table = pd.DataFrame({'A': [1, 2]})
+        result = F(['A']).process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1, 2]}))
 
-        # EU formatting
-        params['type_format'] = m_map['type_format'].index('e.u.')
-        out = render(self.switch_formatting(self.simple), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_int)
+    def test_extract_any_from_str(self):
+        table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2', '-3.1']})
+        form = F(['A'], Extract.ANY)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1.0, 2.1, 3.2, -3.1]}))
 
-    def test_extract_float(self):
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames,
-                  'extract': True,
-                  'type_extract': m_map['type_extract'].index('only float value'),
-                  'type_format': m_map['type_format'].index('u.s.'),
-                  'type_replace': m_map['type_replace'].index('null')}
-        out = render(self.simple.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_float)
+    def test_extract_any_from_category(self):
+        table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2']},
+                             dtype='category')
+        form = F(['A'], Extract.ANY)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1.0, 2.1, 3.2]}))
 
-        # EU
-        params['type_format'] = m_map['type_format'].index('e.u.')
-        out = render(self.switch_formatting(self.simple), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_float)
+    def test_extract_any_us(self):
+        table = pd.DataFrame({'A': ['1,234', '2,345.67', '3.456']})
+        form = F(['A'], Extract.ANY, Format.US)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1234, 2345.67, 3.456]}))
 
-    def test_extract_any(self):
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames,
-                  'extract': True,
-                  'type_extract': m_map['type_extract'].index('any numerical value'),
-                  'type_format': m_map['type_format'].index('u.s.'),
-                  'type_replace': m_map['type_replace'].index('null')}
-        out = render(self.simple.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_any)
+    def test_extract_any_eu(self):
+        table = pd.DataFrame({'A': ['1,234', '2,345.67', '3.456']})
+        form = F(['A'], Extract.ANY, Format.EU)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1.234, 2.345, 3456]}))
 
-        params['type_format'] = m_map['type_format'].index('e.u.')
-        out = render(self.switch_formatting(self.simple), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_any)
+    def test_extract_integer_from_str(self):
+        table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2', '-3']})
+        form = F(['A'], Extract.INTEGER)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1, 2, 3, -3]}))
 
-    def test_to_number(self):
-        colnames = 'stringcol1,stringcol2,catcol,nonum'
-        params = {'colnames': colnames,
-                  'extract': False,
-                  'type_extract': m_map['type_extract'].index('any numerical value'),
-                  'type_format': m_map['type_format'].index('u.s.'),
-                  'type_replace': m_map['type_replace'].index('null')}
-        out = render(self.simple.copy(), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_number)
+    def test_extract_integer_from_category(self):
+        table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2']},
+                             dtype='category')
+        form = F(['A'], Extract.INTEGER)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1, 2, 3]}))
 
-        params['type_format'] = m_map['type_format'].index('e.u.')
-        out = render(self.switch_formatting(self.simple), params)
-        pd.testing.assert_frame_equal(out, self.result_simple_number)
+    def test_extract_integer_no_separator(self):
+        table = pd.DataFrame({'A': ['10000', '20001']})
+        result = F(['A'], Extract.INTEGER).process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [10000, 20001]}))
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_extract_integer_us(self):
+        table = pd.DataFrame({'A': ['1,234', '2,345.67', '3.456']})
+        form = F(['A'], Extract.INTEGER, Format.US)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1234, 2345, 3]}))
 
+    def test_extract_integer_eu(self):
+        table = pd.DataFrame({'A': ['1,234', '2,345.67', '3.456']})
+        form = F(['A'], Extract.INTEGER, Format.EU)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1, 2, 3456]}))
 
+    def test_extract_decimal_from_str(self):
+        table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2']})
+        form = F(['A'], Extract.DECIMAL)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [np.nan, 2.1, 3.2]}))
+
+    def test_extract_decimal_from_category(self):
+        table = pd.DataFrame({'A': ['1', '2.1', 'note: 3.2', '-3', '-3.0']},
+                             dtype='category')
+        form = F(['A'], Extract.DECIMAL)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame(
+            {'A': [np.nan, 2.1, 3.2, np.nan, -3]}
+        ))
+
+    def test_extract_decimal_us(self):
+        table = pd.DataFrame({'A': ['1,234', '2,345.67', '3.456']})
+        form = F(['A'], Extract.DECIMAL, Format.US)
+        result = form.process(table)
+        assert_frame_equal(result,
+                           pd.DataFrame({'A': [np.nan, 2345.67, 3.456]}))
+
+    def test_extract_decimal_eu(self):
+        table = pd.DataFrame({'A': ['1,234', '2,345.67', '3.456']})
+        form = F(['A'], Extract.DECIMAL, Format.EU)
+        result = form.process(table)
+        assert_frame_equal(result, pd.DataFrame({'A': [1.234, 2.345, np.nan]}))
+
+    def test_replace_with_null(self):
+        table = pd.DataFrame({'A': ['', '.', np.nan, '1', '2.1']})
+        form = F(['A'], Extract.INTEGER, Format.US, Replace.NULL)
+        result = form.process(table)
+        assert_frame_equal(result,
+                           pd.DataFrame({'A': [np.nan, np.nan, np.nan, 1, 2]}))
+
+    def test_replace_with_zero(self):
+        table = pd.DataFrame({'A': ['', '.', np.nan, '1', '2.1']})
+        form = F(['A'], Extract.INTEGER, Format.US, Replace.ZERO)
+        result = form.process(table)
+        assert_frame_equal(result,
+                           pd.DataFrame({'A': [0, 0, np.nan, 1, 2]}))
+
+    def test_integration(self):
+        table = pd.DataFrame(
+            {'A': ['1', '2'], 'B': ['2', '3'], 'C': ['3', '4']}
+        )
+        result = render(table, {
+            'colnames': 'A,B',
+            'extract': False,
+            'type_extract': 1,
+            'type_format': 0,
+            'type_replace': 0,
+        })
+        assert_frame_equal(result, pd.DataFrame(
+            {'A': [1, 2], 'B': [2, 3], 'C': ['3', '4']}
+        ))
