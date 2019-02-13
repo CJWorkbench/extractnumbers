@@ -14,8 +14,7 @@
     {
       "name": "Find number in text",
       "id_name": "extract",
-      "type": "checkbox",
-      "default": "False"
+      "type": "checkbox"
     },
     {
       "name": "",
@@ -24,8 +23,7 @@
       "menu_items": "Any numerical value|Only integer|Only float value",
       "visible_if": {
         "id_name": "extract",
-        "value": true,
-        "invert": false
+        "value": true
       }
     },
     {
